@@ -100,13 +100,25 @@ const dataPoints = computed(() => {
   const prices = priceData.value.map((bar) => bar.close)
   const minPrice = Math.min(...prices)
   const maxPrice = Math.max(...prices)
-  const priceRange = maxPrice - minPrice || maxPrice * 0.01
+  const priceRange = maxPrice - minPrice || maxPrice * 0.05 // 5% buffer for flat prices
+
+  // Chart area with padding
+  const chartWidth = 80
+  const chartHeight = 32
+  const paddingX = 4
+  const paddingY = 6
+  const usableWidth = chartWidth - paddingX * 2
+  const usableHeight = chartHeight - paddingY * 2
 
   return priceData.value.map((bar, index) => {
-    const x = (index / Math.max(1, priceData.value.length - 1)) * 80
+    // Horizontal distribution
+    const x = paddingX + (index / Math.max(1, priceData.value.length - 1)) * usableWidth
+    
+    // Vertical distribution (normalized 0 to 1, then flipped)
     const normalizedPrice = (bar.close - minPrice) / priceRange
-    const y = 30 - normalizedPrice * 28 + 2
-    return { x, y: Math.max(2, Math.min(30, y)) }
+    const y = paddingY + usableHeight - normalizedPrice * usableHeight
+    
+    return { x, y: Math.max(paddingY, Math.min(chartHeight - paddingY, y)) }
   })
 })
 

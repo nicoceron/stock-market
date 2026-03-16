@@ -134,35 +134,69 @@ func (s *Service) isUpgrade(from *string, to *string) bool {
 	return fromExists && toExists && toScore > fromScore
 }
 
-// createBasicRecommendation creates a recommendation based only on analyst rating
+// createBasicRecommendation creates a recommendation based on an advanced scoring algorithm
 func (s *Service) createBasicRecommendation(rating *domain.StockRating) *domain.StockRecommendation {
-	baseScore := 0.7 // Base score for positive analyst rating
+	baseScore := 0.5 // Start neutral
 
-	// Adjust score based on rating strength
+	// 1. Rating Strength Bonus
 	ratingBonus := map[string]float64{
-		"Strong Buy": 0.2,
+		"Strong Buy": 0.25,
 		"Buy":        0.15,
-		"Outperform": 0.1,
-		"Overweight": 0.1,
+		"Outperform": 0.10,
+		"Overweight": 0.10,
+		"Hold":       0.0,
+		"Sell":       -0.2,
+		"Strong Sell": -0.3,
 	}
-
 	if bonus, exists := ratingBonus[rating.RatingTo]; exists {
 		baseScore += bonus
 	}
 
-	// Recent ratings get a small bonus
-	timeBonus := 0.0
-	if time.Since(rating.Time) < 7*24*time.Hour {
-		timeBonus = 0.05
+	// 2. Upside Potential Calculation (if we have target prices)
+	upsideBonus := 0.0
+	upsidePercentage := 0.0
+	if rating.TargetTo != nil && rating.TargetFrom != nil && *rating.TargetFrom > 0 {
+		currentPrice := *rating.TargetFrom // We store current price in TargetFrom during ingestion
+		targetPrice := *rating.TargetTo
+		upsidePercentage = ((targetPrice - currentPrice) / currentPrice) * 100
+		
+		// Add up to 0.20 score based on upside (e.g., 20% upside = max bonus)
+		if upsidePercentage > 0 {
+			upsideBonus = math.Min(0.20, (upsidePercentage/100.0))
+		}
+	} else if rating.TargetTo != nil {
+		// Fallback if we only have the target (give a flat optimistic bonus)
+		upsideBonus = 0.05
+	}
+	baseScore += upsideBonus
+
+	// 3. Time Decay Penalty (Ratings get stale)
+	daysSince := time.Since(rating.Time).Hours() / 24.0
+	timePenalty := 0.0
+	if daysSince > 0 {
+		// Lose 0.01 score for every day old, max penalty 0.15
+		timePenalty = math.Min(0.15, daysSince*0.01)
+	}
+	baseScore -= timePenalty
+
+	// 4. Action Momentum
+	if strings.Contains(strings.ToLower(rating.Action), "upgrad") {
+		baseScore += 0.05
+	} else if strings.Contains(strings.ToLower(rating.Action), "downgrad") {
+		baseScore -= 0.10
 	}
 
-	finalScore := math.Min(1.0, baseScore+timeBonus)
+	// Calculate final score bounded between 0.1 and 0.99
+	finalScore := math.Max(0.1, math.Min(0.99, baseScore))
+
+	// Generate smart rationale
+	rationale := s.generateSmartRationale(rating, upsidePercentage, daysSince)
 
 	return &domain.StockRecommendation{
 		Ticker:          rating.Ticker,
 		Company:         rating.Company,
 		Score:           finalScore,
-		Rationale:       s.generateBasicRationale(rating),
+		Rationale:       rationale,
 		LatestRating:    rating.RatingTo,
 		TargetPrice:     rating.TargetTo,
 		TechnicalSignal: "Pending Analysis",
@@ -171,27 +205,29 @@ func (s *Service) createBasicRecommendation(rating *domain.StockRating) *domain.
 	}
 }
 
-// generateBasicRationale creates a rationale based on analyst rating only
-func (s *Service) generateBasicRationale(rating *domain.StockRating) string {
+// generateSmartRationale creates a dynamic string explaining the score
+func (s *Service) generateSmartRationale(rating *domain.StockRating, upside float64, daysOld float64) string {
 	var parts []string
 
-	// Analyst rating component
-	parts = append(parts, fmt.Sprintf("Recent %s rating by %s", rating.RatingTo, rating.Brokerage))
-
-	// Add timing context
-	daysSince := int(time.Since(rating.Time).Hours() / 24)
-	if daysSince <= 1 {
-		parts = append(parts, "issued today")
-	} else if daysSince <= 7 {
-		parts = append(parts, fmt.Sprintf("issued %d days ago", daysSince))
+	if strings.Contains(strings.ToLower(rating.Action), "upgrad") {
+		parts = append(parts, fmt.Sprintf("Upgraded to %s", rating.RatingTo))
+	} else {
+		parts = append(parts, fmt.Sprintf("Rated %s", rating.RatingTo))
 	}
 
-	// Add target price context if available
-	if rating.TargetTo != nil {
-		parts = append(parts, fmt.Sprintf("price target $%.2f", *rating.TargetTo))
+	if upside > 0 {
+		parts = append(parts, fmt.Sprintf("with a %.1f%% upside potential", upside))
+	} else if rating.TargetTo != nil {
+		parts = append(parts, fmt.Sprintf("targeting $%.2f", *rating.TargetTo))
 	}
 
-	return strings.Join(parts, ", ")
+	if daysOld < 1 {
+		parts = append(parts, "(Issued today)")
+	} else {
+		parts = append(parts, fmt.Sprintf("(%d days ago)", int(daysOld)))
+	}
+
+	return strings.Join(parts, " ")
 }
 
 // GetCachedRecommendations retrieves cached recommendations or generates new ones if cache is stale

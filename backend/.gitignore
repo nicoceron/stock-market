@@ -57,4 +57,4 @@ terraform/variables.tf
 terraform/.terraform/
 terraform/*.tfstate
 terraform/*.tfstate.*
-terraform/.terraform.lock.hcl
+terraform/.terraform.lock.hclcerts/

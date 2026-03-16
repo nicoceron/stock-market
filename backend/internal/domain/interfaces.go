@@ -99,6 +99,20 @@ type AlpacaService interface {
 
 	// IsMarketHours checks if the US stock market is currently open.
 	IsMarketHours() bool
+
+	// GetNews fetches recent news articles for a ticker.
+	GetNews(ctx context.Context, symbol string, start, end time.Time) ([]NewsArticle, error)
+}
+
+// NewsArticle represents a news article from Alpaca.
+type NewsArticle struct {
+	ID        int       `json:"id"`
+	Headline  string    `json:"headline"`
+	Summary   string    `json:"summary"`
+	Content   string    `json:"content"`
+	URL       string    `json:"url"`
+	Symbols   []string  `json:"symbols"`
+	Timestamp time.Time `json:"timestamp"`
 }
 
 // FilterOptions defines filtering and pagination options for data queries.

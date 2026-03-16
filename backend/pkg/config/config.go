@@ -19,6 +19,7 @@ type Config struct {
 	StockAPIToken   string
 	AlpacaAPIKey    string
 	AlpacaAPISecret string
+	AlpacaBaseURL   string
 
 	// Application settings
 	MaxWorkers     int
@@ -38,6 +39,7 @@ func Load() *Config {
 		StockAPIToken:   getEnv("STOCK_API_TOKEN", ""),
 		AlpacaAPIKey:    getEnv("ALPACA_API_KEY", ""),
 		AlpacaAPISecret: getEnv("ALPACA_API_SECRET", ""),
+		AlpacaBaseURL:   getEnv("ALPACA_BASE_URL", "https://data.alpaca.markets"),
 
 		MaxWorkers:     getEnvInt("MAX_WORKERS", 10),
 		RequestTimeout: getEnvInt("REQUEST_TIMEOUT_SECONDS", 30),

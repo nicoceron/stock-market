@@ -77,20 +77,27 @@ func (rl *RateLimiter) Wait() {
 type Service struct {
 	client      *marketdata.Client
 	rateLimiter *RateLimiter
+	apiKey      string
+	apiSecret   string
 }
 
 // NewService creates a new Alpaca service with rate limiting
-func NewService(apiKey, apiSecret string) *Service {
+func NewService(apiKey, apiSecret, baseURL string) *Service {
+	if baseURL == "" {
+		baseURL = "https://data.alpaca.markets"
+	}
 	// Create Alpaca client using official SDK
 	alpacaClient := marketdata.NewClient(marketdata.ClientOpts{
 		APIKey:    apiKey,
 		APISecret: apiSecret,
-		BaseURL:   "https://data.alpaca.markets",
+		BaseURL:   baseURL,
 	})
 
 	return &Service{
 		client:      alpacaClient,
 		rateLimiter: NewRateLimiter(250 * time.Millisecond), // 4 requests per second max
+		apiKey:      apiKey,
+		apiSecret:   apiSecret,
 	}
 }
 
@@ -288,15 +295,54 @@ func (s *Service) IsMarketHours() bool {
 	return weekday >= time.Monday && weekday <= time.Friday && hour >= 9 && hour < 16
 }
 
+// GetNews fetches recent news articles for a symbol
+func (s *Service) GetNews(ctx context.Context, symbol string, start, end time.Time) ([]domain.NewsArticle, error) {
+	// Apply rate limiting
+	s.rateLimiter.Wait()
+
+	// News API is always on data.alpaca.markets
+	newsClient := marketdata.NewClient(marketdata.ClientOpts{
+		BaseURL:   "https://data.alpaca.markets",
+		APIKey:    s.apiKey,
+		APISecret: s.apiSecret,
+	})
+
+	req := marketdata.GetNewsRequest{
+		Symbols: []string{symbol},
+		Start:   start,
+		End:     end,
+	}
+
+	news, err := newsClient.GetNews(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get news from Alpaca: %w", err)
+	}
+
+	articles := make([]domain.NewsArticle, len(news))
+	for i, article := range news {
+		articles[i] = domain.NewsArticle{
+			ID:        article.ID,
+			Headline:  article.Headline,
+			Summary:   article.Summary,
+			Content:   article.Content,
+			URL:       article.URL,
+			Symbols:   article.Symbols,
+			Timestamp: article.CreatedAt,
+		}
+	}
+
+	return articles, nil
+}
+
 // Adapter implements domain.AlpacaService interface
 type Adapter struct {
 	service *Service
 }
 
 // NewAdapter creates a new adapter that implements domain.AlpacaService
-func NewAdapter(apiKey, apiSecret string) *Adapter {
+func NewAdapter(apiKey, apiSecret, baseURL string) *Adapter {
 	return &Adapter{
-		service: NewService(apiKey, apiSecret),
+		service: NewService(apiKey, apiSecret, baseURL),
 	}
 }
 
@@ -416,4 +462,9 @@ func (a *Adapter) GetRecentBars(ctx context.Context, symbol string) ([]domain.Pr
 // IsMarketHours implements domain.AlpacaService
 func (a *Adapter) IsMarketHours() bool {
 	return a.service.IsMarketHours()
+}
+
+// GetNews implements domain.AlpacaService
+func (a *Adapter) GetNews(ctx context.Context, symbol string, start, end time.Time) ([]domain.NewsArticle, error) {
+	return a.service.GetNews(ctx, symbol, start, end)
 }

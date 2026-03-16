@@ -112,6 +112,7 @@ locals {
   common_environment_variables = {
     ENVIRONMENT       = var.environment
     DATABASE_URL      = var.database_url
+    PGSSLROOTCERT     = "/var/task/root.crt"
     ALPACA_API_KEY    = var.alpaca_api_key
     ALPACA_API_SECRET = var.alpaca_api_secret
     STOCK_API_URL     = var.stock_api_url

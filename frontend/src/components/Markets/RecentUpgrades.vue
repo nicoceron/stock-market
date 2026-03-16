@@ -66,8 +66,16 @@ const props = withDefaults(defineProps<Props>(), {
 const recentUpgrades = computed(() => {
   if (!Array.isArray(props.ratings)) return []
 
-  return props.ratings
+  const buyRatings = props.ratings
     .filter((rating) => rating.rating_to && rating.rating_to.toLowerCase().includes('buy'))
     .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+
+  // Deduplicate by ticker
+  const seen = new Set()
+  return buyRatings.filter((rating) => {
+    if (seen.has(rating.ticker)) return false
+    seen.add(rating.ticker)
+    return true
+  })
 })
 </script>

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -212,8 +213,11 @@ func (h *Handlers) GetRecommendations(c *gin.Context) {
 
 // TriggerIngestion manually triggers a full data ingestion process
 func (h *Handlers) TriggerIngestion(c *gin.Context) {
+	// Create a long-lived context for background processing
+	ctx := context.Background()
+	
 	go func() {
-		if err := h.ingestionSvc.IngestAllData(c.Request.Context()); err != nil {
+		if err := h.ingestionSvc.IngestAllData(ctx); err != nil {
 			println("Ingestion error:", err.Error())
 		}
 	}()

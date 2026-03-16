@@ -110,4 +110,23 @@ resource "random_string" "bucket_suffix" {
   length  = 8
   special = false
   upper   = false
-} 
+}
+
+# AWS Budget to keep everything free
+resource "aws_budgets_budget" "zero_cost" {
+  name              = "${var.project_name}-zero-cost-budget"
+  budget_type       = "COST"
+  limit_amount      = "0.01"
+  limit_unit        = "USD"
+  time_period_start = "2026-03-01_00:00"
+  time_unit         = "MONTHLY"
+
+  notification {
+    comparison_operator        = "GREATER_THAN"
+    threshold                  = 100
+    threshold_type             = "PERCENTAGE"
+    notification_type          = "FORECASTED"
+    subscriber_email_addresses = ["ceron@test.com"] # Replace with your actual email
+  }
+}
+ 

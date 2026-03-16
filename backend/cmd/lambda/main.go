@@ -27,21 +27,26 @@ import (
 	"database/sql"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
-	ginadapter "github.com/awslabs/aws-lambda-go-api-proxy/gin"
+	"github.com/awslabs/aws-lambda-go-api-proxy/gin"
 	"github.com/gin-gonic/gin"
 	_ "github.com/lib/pq"
+	_ "modernc.org/sqlite"
 
 	"stock-analyzer/internal/alpaca"
+
 	"stock-analyzer/internal/api"
 	"stock-analyzer/internal/domain"
 	"stock-analyzer/internal/ingestion"
 	"stock-analyzer/internal/recommendation"
 	"stock-analyzer/internal/storage"
 	"stock-analyzer/pkg/config"
+
+	"github.com/joho/godotenv"
 )
 
 var (
@@ -66,13 +71,26 @@ func init() {
 	// Set Gin to release mode in Lambda to reduce log verbosity
 	gin.SetMode(gin.ReleaseMode)
 
+	// Load .env file if it exists
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found, using system environment variables")
+	}
+
 	// Load configuration from environment variables
 	cfg := config.Load()
 
 	// Initialize database connection pool
 	// The connection will be reused across Lambda invocations
 	var err error
-	db, err = sql.Open("postgres", cfg.DatabaseURL)
+	driverName := "postgres"
+	dataSourceName := cfg.DatabaseURL
+
+	if strings.HasPrefix(cfg.DatabaseURL, "sqlite") {
+		driverName = "sqlite"
+		dataSourceName = strings.TrimPrefix(cfg.DatabaseURL, "sqlite://")
+	}
+
+	db, err = sql.Open(driverName, dataSourceName)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
@@ -83,13 +101,11 @@ func init() {
 		log.Fatalf("Failed to ping database: %v", err)
 	}
 
-	// Initialize repositories with database connection
-	stockRepo = storage.NewPostgresRepository(db)
-
 	// Initialize business services with their dependencies
-	ingestionSvc = ingestion.NewService(stockRepo, cfg.StockAPIURL, cfg.StockAPIToken)
+	alpacaSvc = alpaca.NewAdapter(cfg.AlpacaAPIKey, cfg.AlpacaAPISecret, cfg.AlpacaBaseURL)
+	stockRepo = storage.NewPostgresRepository(db)
+	ingestionSvc = ingestion.NewService(stockRepo, alpacaSvc, cfg.StockAPIURL, cfg.StockAPIToken)
 	recommendationSvc = recommendation.NewService(stockRepo)
-	alpacaSvc = alpaca.NewAdapter(cfg.AlpacaAPIKey, cfg.AlpacaAPISecret)
 
 	// Setup HTTP router with all handlers and middleware
 	router := api.SetupRouter(stockRepo, ingestionSvc, recommendationSvc, alpacaSvc)
@@ -186,9 +202,24 @@ func handleScheduler(ctx context.Context) (events.APIGatewayProxyResponse, error
 }
 
 // main is the Lambda entry point that starts the AWS Lambda runtime.
-// This function is called by the AWS Lambda service when the function is invoked.
-// It registers our Handler function with the Lambda runtime and begins
-// processing incoming events.
 func main() {
-	lambda.Start(Handler)
+	// Check if running in Lambda
+	if os.Getenv("LAMBDA_TASK_ROOT") == "" && os.Getenv("AWS_LAMBDA_FUNCTION_NAME") == "" {
+		// Local execution
+		log.Println("🚀 Starting local server...")
+		
+		// Load config to get port
+		cfg := config.Load()
+		
+		// Setup router (re-initializing because init() might have failed if env vars were missing)
+		router := api.SetupRouter(stockRepo, ingestionSvc, recommendationSvc, alpacaSvc)
+		
+		log.Printf("📡 Listening on port %s", cfg.Port)
+		if err := router.Run(":" + cfg.Port); err != nil {
+			log.Fatalf("Failed to start local server: %v", err)
+		}
+	} else {
+		// Lambda execution
+		lambda.Start(Handler)
+	}
 }

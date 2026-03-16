@@ -13,21 +13,59 @@ import (
 
 // PostgresRepository implements the StockRepository interface for PostgreSQL/CockroachDB
 type PostgresRepository struct {
-	db *sql.DB
+	db      *sql.DB
+	dialect string
 }
 
 // NewPostgresRepository creates a new PostgresRepository instance
 func NewPostgresRepository(db *sql.DB) *PostgresRepository {
-	return &PostgresRepository{db: db}
+	dialect := "postgres"
+	// Simple check for SQLite
+	err := db.Ping()
+	if err == nil {
+		// This is a bit hacky but works for local testing
+		var dummy int
+		err = db.QueryRow("SELECT 1").Scan(&dummy)
+		if err == nil {
+			// Check if we are using modernc.org/sqlite
+			// Usually we can just check the connection type but here we'll use an env var hint or similar
+			// For now, we'll try to detect by executing a postgres-specific query
+			_, err = db.Exec("SET TIME ZONE 'UTC'")
+			if err != nil {
+				dialect = "sqlite"
+			}
+		}
+	}
+
+	return &PostgresRepository{
+		db:      db,
+		dialect: dialect,
+	}
+}
+
+func (r *PostgresRepository) placeholder(n int) string {
+	if r.dialect == "sqlite" {
+		return "?"
+	}
+	return fmt.Sprintf("$%d", n)
+}
+
+func (r *PostgresRepository) ilike() string {
+	if r.dialect == "sqlite" {
+		return "LIKE" // SQLite LIKE is case-insensitive by default for ASCII
+	}
+	return "ILIKE"
 }
 
 // CreateStockRating stores a new stock rating
 func (r *PostgresRepository) CreateStockRating(ctx context.Context, rating *domain.StockRating) error {
-	query := `
+	query := fmt.Sprintf(`
 		INSERT INTO stock_ratings (
 			rating_id, ticker, company, brokerage, action, 
 			rating_from, rating_to, target_from, target_to, time
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
+		) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)`,
+		r.placeholder(1), r.placeholder(2), r.placeholder(3), r.placeholder(4), r.placeholder(5),
+		r.placeholder(6), r.placeholder(7), r.placeholder(8), r.placeholder(9), r.placeholder(10))
 
 	_, err := r.db.ExecContext(ctx, query,
 		rating.RatingID, rating.Ticker, rating.Company, rating.Brokerage,
@@ -53,12 +91,16 @@ func (r *PostgresRepository) CreateStockRatingsBatch(ctx context.Context, rating
 	}
 	defer tx.Rollback()
 
-	stmt, err := tx.PrepareContext(ctx, `
+	query := fmt.Sprintf(`
 		INSERT INTO stock_ratings (
 			rating_id, ticker, company, brokerage, action, 
 			rating_from, rating_to, target_from, target_to, time
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-		ON CONFLICT (ticker, brokerage, rating_to, time) DO NOTHING`)
+		) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+		ON CONFLICT (ticker, brokerage, rating_to, time) DO NOTHING`,
+		r.placeholder(1), r.placeholder(2), r.placeholder(3), r.placeholder(4), r.placeholder(5),
+		r.placeholder(6), r.placeholder(7), r.placeholder(8), r.placeholder(9), r.placeholder(10))
+
+	stmt, err := tx.PrepareContext(ctx, query)
 	if err != nil {
 		return 0, apperrors.Wrap(err, apperrors.ErrCodeDatabase, "failed to prepare statement")
 	}
@@ -110,7 +152,8 @@ func (r *PostgresRepository) GetStockRatings(ctx context.Context, filters domain
 	argCount := 0
 
 	if search != "" {
-		whereClause = "WHERE (company ILIKE $1 OR ticker ILIKE $1 OR brokerage ILIKE $1)"
+		whereClause = fmt.Sprintf("WHERE (company %s %s OR ticker %s %s OR brokerage %s %s)",
+			r.ilike(), r.placeholder(1), r.ilike(), r.placeholder(1), r.ilike(), r.placeholder(1))
 		args = append(args, "%"+search+"%")
 		argCount = 1
 	}
@@ -146,8 +189,8 @@ func (r *PostgresRepository) GetStockRatings(ctx context.Context, filters domain
 	query := fmt.Sprintf(`
 		SELECT rating_id, ticker, company, brokerage, action, rating_from, 
 			   rating_to, target_from, target_to, time, created_at
-		FROM stock_ratings %s %s LIMIT $%d OFFSET $%d`,
-		whereClause, orderClause, argCount+1, argCount+2)
+		FROM stock_ratings %s %s LIMIT %s OFFSET %s`,
+		whereClause, orderClause, r.placeholder(argCount+1), r.placeholder(argCount+2))
 
 	args = append(args, limit, offset)
 
@@ -192,12 +235,12 @@ func (r *PostgresRepository) GetStockRatings(ctx context.Context, filters domain
 
 // GetStockRatingsByTicker retrieves all ratings for a specific ticker
 func (r *PostgresRepository) GetStockRatingsByTicker(ctx context.Context, ticker string) ([]domain.StockRating, error) {
-	query := `
+	query := fmt.Sprintf(`
 		SELECT rating_id, ticker, company, brokerage, action, rating_from, 
 			   rating_to, target_from, target_to, time, created_at
 		FROM stock_ratings 
-		WHERE ticker = $1 
-		ORDER BY time DESC`
+		WHERE ticker = %s 
+		ORDER BY time DESC`, r.placeholder(1))
 
 	rows, err := r.db.QueryContext(ctx, query, ticker)
 	if err != nil {
@@ -263,13 +306,14 @@ func (r *PostgresRepository) CreateEnrichedStockData(ctx context.Context, data *
 		return apperrors.Wrap(err, apperrors.ErrCodeValidation, "failed to marshal news sentiment")
 	}
 
-	query := `
+	query := fmt.Sprintf(`
 		INSERT INTO enriched_stock_data (ticker, historical_prices, news_sentiment, updated_at)
-		VALUES ($1, $2, $3, NOW())
+		VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
 		ON CONFLICT (ticker) DO UPDATE SET
 			historical_prices = EXCLUDED.historical_prices,
 			news_sentiment = EXCLUDED.news_sentiment,
-			updated_at = NOW()`
+			updated_at = CURRENT_TIMESTAMP`,
+		r.placeholder(1), r.placeholder(2), r.placeholder(3))
 
 	_, err = r.db.ExecContext(ctx, query, data.Ticker, histPricesJSON, sentimentJSON)
 	if err != nil {
@@ -281,10 +325,10 @@ func (r *PostgresRepository) CreateEnrichedStockData(ctx context.Context, data *
 
 // GetEnrichedStockData retrieves enriched data for a ticker
 func (r *PostgresRepository) GetEnrichedStockData(ctx context.Context, ticker string) (*domain.EnrichedStockData, error) {
-	query := `
+	query := fmt.Sprintf(`
 		SELECT ticker, historical_prices, news_sentiment, updated_at
 		FROM enriched_stock_data 
-		WHERE ticker = $1`
+		WHERE ticker = %s`, r.placeholder(1))
 
 	var data domain.EnrichedStockData
 	var histPricesJSON, sentimentJSON []byte
@@ -312,11 +356,24 @@ func (r *PostgresRepository) GetEnrichedStockData(ctx context.Context, ticker st
 
 // GetLatestRatingsByTicker gets the most recent rating for each ticker
 func (r *PostgresRepository) GetLatestRatingsByTicker(ctx context.Context) (map[string]*domain.StockRating, error) {
-	query := `
-		SELECT DISTINCT ON (ticker) ticker, rating_id, company, brokerage, action, 
-			   rating_from, rating_to, target_from, target_to, time, created_at
-		FROM stock_ratings 
-		ORDER BY ticker, time DESC`
+	var query string
+	if r.dialect == "sqlite" {
+		query = `
+			SELECT ticker, rating_id, company, brokerage, action, 
+				   rating_from, rating_to, target_from, target_to, time, created_at
+			FROM stock_ratings 
+			WHERE (ticker, time) IN (
+				SELECT ticker, MAX(time)
+				FROM stock_ratings
+				GROUP BY ticker
+			)`
+	} else {
+		query = `
+			SELECT DISTINCT ON (ticker) ticker, rating_id, company, brokerage, action, 
+				   rating_from, rating_to, target_from, target_to, time, created_at
+			FROM stock_ratings 
+			ORDER BY ticker, time DESC`
+	}
 
 	rows, err := r.db.QueryContext(ctx, query)
 	if err != nil {
@@ -346,7 +403,7 @@ func (r *PostgresRepository) GetLatestRatingsByTicker(ctx context.Context) (map[
 
 // DeleteOldEnrichedData removes enriched stock data records older than a given time
 func (r *PostgresRepository) DeleteOldEnrichedData(ctx context.Context, olderThan time.Time) (int64, error) {
-	query := `DELETE FROM enriched_stock_data WHERE updated_at < $1`
+	query := fmt.Sprintf(`DELETE FROM enriched_stock_data WHERE updated_at < %s`, r.placeholder(1))
 
 	result, err := r.db.ExecContext(ctx, query, olderThan)
 	if err != nil {
