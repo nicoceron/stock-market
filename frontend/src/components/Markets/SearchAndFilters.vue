@@ -1,6 +1,6 @@
 <template>
   <div class="p-4">
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div class="grid grid-cols-1 gap-4">
       <div>
         <div class="relative">
           <input
@@ -14,19 +14,6 @@
             <MagnifyingGlassIcon class="h-5 w-5 text-gray-400" />
           </div>
         </div>
-      </div>
-
-      <div>
-        <select
-          :value="pageSize"
-          class="block w-full border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm font-medium text-gray-900"
-          @change="handlePageSizeChange"
-        >
-          <option value="10">10 per page</option>
-          <option value="20">20 per page</option>
-          <option value="50">50 per page</option>
-          <option value="100">100 per page</option>
-        </select>
       </div>
     </div>
   </div>

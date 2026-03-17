@@ -8,12 +8,11 @@
     </div>
 
     <!-- Trending and Top Gainers section -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div class="grid grid-cols-1 gap-4">
       <TrendingRecommendations
         :recommendations="stocksStore.recommendations"
         :is-loading="stocksStore.isLoading"
       />
-      <RecentUpgrades :ratings="stocksStore.ratings" />
     </div>
 
     <!-- Main table -->
