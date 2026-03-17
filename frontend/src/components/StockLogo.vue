@@ -1,5 +1,5 @@
 <template>
-  <div class="stock-logo" :class="[sizeClass, imageError || !logoUrl ? '' : 'bg-gray-100 border border-gray-300 shadow-sm']">
+  <div class="stock-logo" :class="[sizeClass, imageError || !logoUrl ? '' : 'bg-slate-100 border border-slate-300 shadow-sm']">
     <img
       v-if="logoUrl && !imageError"
       :src="logoUrl"
@@ -144,7 +144,10 @@ const handleImageError = () => {
 
 /* Logo image */
 .logo-image {
-  @apply w-full h-full object-contain;
+  @apply w-full h-full object-contain p-1;
+  /* This creates a 1px dark 'outline' around the image content itself (the text/logo) */
+  /* ensuring white text on transparent backgrounds is visible on light grays */
+  filter: drop-shadow(0px 0px 0.5px rgba(0,0,0,0.5)) drop-shadow(0px 0px 0.2px rgba(0,0,0,0.3));
 }
 
 /* Logo fallback */
