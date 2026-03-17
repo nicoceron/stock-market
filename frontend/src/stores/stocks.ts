@@ -73,10 +73,10 @@ export const useStocksStore = defineStore('stocks', () => {
   })
 
   // Logo caching only (no price caching for fresh chart data)
-  const logoCache = ref<Map<string, StockLogoData>>(new Map())
+  const logoCache = ref<Record<string, StockLogoData>>({})
 
   // Price data store (no caching, just shared data for current session)
-  const priceDataStore = ref<Map<string, StockPriceData>>(new Map())
+  const priceDataStore = ref<Record<string, StockPriceData>>({})
 
   // Rate limiting state
   const rateLimitState = ref({
@@ -123,13 +123,13 @@ export const useStocksStore = defineStore('stocks', () => {
 
   // Logo cache utility functions only
   function getCachedLogoData(symbol: string): StockLogoData | null {
-    const cached = logoCache.value.get(symbol)
+    const cached = logoCache.value[symbol]
     if (!cached) return null
 
     // Cache valid for 1 hour
     const now = Date.now()
     if (now - cached.lastUpdated > 60 * 60 * 1000) {
-      logoCache.value.delete(symbol)
+      delete logoCache.value[symbol]
       return null
     }
 
@@ -137,25 +137,25 @@ export const useStocksStore = defineStore('stocks', () => {
   }
 
   function setCachedLogoData(symbol: string, logoUrl: string, alternatives?: string[]) {
-    logoCache.value.set(symbol, {
+    logoCache.value[symbol] = {
       symbol,
       logoUrl,
       alternatives,
       lastUpdated: Date.now(),
-    } as any)
+    } as any
   }
 
   // Price data utility functions (no caching, just shared store)
   function getPriceData(symbol: string): StockPriceData | null {
-    return priceDataStore.value.get(symbol) || null
+    return priceDataStore.value[symbol] || null
   }
 
   function setPriceData(symbol: string, bars: PriceBar[]) {
-    priceDataStore.value.set(symbol, {
+    priceDataStore.value[symbol] = {
       symbol,
       bars,
       lastUpdated: Date.now(),
-    })
+    }
   }
 
   function isPriceDataLoading(symbol: string): boolean {
@@ -712,6 +712,8 @@ export const useStocksStore = defineStore('stocks', () => {
     pagination,
     filters,
     loadingState,
+    logoCache,
+    priceDataStore,
 
     // Computed
     isLoading,

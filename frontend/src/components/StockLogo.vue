@@ -38,7 +38,7 @@ const imageError = ref(false)
 // Get logo data from store
 const logoData = computed(() => {
   if (!props.symbol) return null
-  return stocksStore.getCachedLogoData(props.symbol)
+  return stocksStore.logoCache[props.symbol]
 })
 
 const logoUrl = computed(() => {

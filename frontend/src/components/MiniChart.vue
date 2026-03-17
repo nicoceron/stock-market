@@ -67,7 +67,7 @@ const stocksStore = useStocksStore()
 const priceData = computed(() => {
   if (!props.symbol) return []
 
-  const storeData = stocksStore.getPriceData(props.symbol)
+  const storeData = stocksStore.priceDataStore[props.symbol]
   if (!storeData?.bars) return []
 
   return storeData.bars.map((bar: PriceBar) => ({
