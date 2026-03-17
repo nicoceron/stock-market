@@ -63,7 +63,7 @@
           <!-- Right side items: Search -->
           <div class="flex items-center space-x-4 flex-1 justify-end max-w-xl">
             <!-- Search Bar -->
-            <div class="relative w-full max-w-[280px] hidden md:block">
+            <div class="relative w-full max-w-[280px] hidden md:block search-container">
               <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <MagnifyingGlassIcon class="h-4 w-4 text-gray-400" />
               </div>
@@ -71,9 +71,40 @@
                 type="text"
                 v-model="searchQuery"
                 @input="handleSearch"
+                @focus="showSuggestions = suggestions.length > 0"
                 placeholder="Search"
                 class="block w-full pl-10 pr-3 py-1.5 bg-gray-100 border-none rounded-lg text-sm focus:ring-1 focus:ring-gecko-green-500 focus:bg-white transition-all duration-200"
               />
+
+              <!-- Search Suggestions Dropdown -->
+              <transition
+                enter-active-class="transition duration-100 ease-out"
+                enter-from-class="transform scale-95 opacity-0"
+                enter-to-class="transform scale-100 opacity-100"
+                leave-active-class="transition duration-75 ease-in"
+                leave-from-class="transform scale-100 opacity-100"
+                leave-to-class="transform scale-95 opacity-0"
+              >
+                <div v-if="showSuggestions" class="absolute left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50">
+                  <div class="max-h-[400px] overflow-y-auto">
+                    <div v-for="suggestion in suggestions" :key="suggestion.ticker" 
+                      @click="selectSuggestion(suggestion.ticker)"
+                      class="px-4 py-3 hover:bg-gray-50 flex items-center justify-between cursor-pointer border-b border-gray-50 last:border-0 group"
+                    >
+                      <div class="flex items-center space-x-3">
+                        <StockLogo :symbol="suggestion.ticker" size="xs" />
+                        <div class="flex flex-col">
+                          <span class="text-sm font-bold text-gray-900 group-hover:text-gecko-green-600 transition-colors">{{ suggestion.ticker }}</span>
+                          <span class="text-xs text-gray-500 truncate max-w-[120px]">{{ suggestion.company }}</span>
+                        </div>
+                      </div>
+                      <div class="text-right">
+                        <div class="text-[13px] font-bold text-gray-900">${{ (suggestion.target_to || 0).toFixed(2) }}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </transition>
             </div>
 
             <div class="flex items-center">
@@ -113,9 +144,9 @@
             >
               {{ item.name }}
             </router-link>
-            
+
             <div class="pt-4 pb-2">
-              <div class="relative px-3">
+              <div class="relative px-3 search-container">
                 <input
                   type="text"
                   v-model="searchQuery"
@@ -126,13 +157,28 @@
                 <div class="absolute inset-y-0 left-6 flex items-center">
                   <MagnifyingGlassIcon class="h-4 w-4 text-gray-400" />
                 </div>
+
+                <!-- Mobile Suggestions -->
+                <div v-if="showSuggestions" class="absolute left-3 right-3 mt-1 bg-white rounded-lg shadow-lg border border-gray-100 overflow-hidden z-50">
+                  <div v-for="suggestion in suggestions" :key="suggestion.ticker" 
+                    @click="selectSuggestion(suggestion.ticker)"
+                    class="px-4 py-3 hover:bg-gray-50 flex items-center justify-between border-b border-gray-50 last:border-0"
+                  >
+                    <div class="flex items-center space-x-3">
+                      <StockLogo :symbol="suggestion.ticker" size="xs" />
+                      <div class="flex flex-col">
+                        <span class="text-sm font-bold text-gray-900">{{ suggestion.ticker }}</span>
+                        <span class="text-xs text-gray-500">{{ suggestion.company }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </transition>
     </header>
-
 
     <!-- Error alert -->
     <div v-if="stocksStore.hasError" class="mx-auto mt-4 px-4 lg:px-8 max-w-[1344px]">
@@ -168,40 +214,40 @@
             <span class="font-bold text-gray-900">StockAnalyzer</span>
             <span>&copy; 2026. All rights reserved.</span>
           </div>
-          <div class="flex space-x-6">
-            <a href="#" class="hover:text-gecko-green-600 transition-colors">Terms</a>
-            <a href="#" class="hover:text-gecko-green-600 transition-colors">Privacy</a>
-            <a href="#" class="hover:text-gecko-green-600 transition-colors">Contact</a>
-          </div>
         </div>
       </div>
     </footer>
+
+
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import {
   ChartBarIcon,
   Bars3Icon,
   XMarkIcon,
   ExclamationTriangleIcon,
   MagnifyingGlassIcon,
-  MoonIcon,
-  SparklesIcon,
 } from '@heroicons/vue/24/outline'
 import { ChevronUpIcon } from '@heroicons/vue/20/solid'
 import { useStocksStore } from '@/stores/stocks'
-import type { NavItem } from '@/types'
+import { apiService } from '@/services/api'
+import StockLogo from '@/components/StockLogo.vue'
+import type { NavItem, StockRating } from '@/types'
 
-// Store
+// Store and Router
 const stocksStore = useStocksStore()
 const route = useRoute()
+const router = useRouter()
 
 // Local state
 const mobileMenuOpen = ref(false)
 const searchQuery = ref('')
+const suggestions = ref<StockRating[]>([])
+const showSuggestions = ref(false)
 let searchTimeout: ReturnType<typeof setTimeout> | null = null
 
 // Navigation items
@@ -219,16 +265,51 @@ const updateNavigationState = () => {
 }
 
 // Search handler
-const handleSearch = () => {
+const handleSearch = async () => {
   if (searchTimeout) clearTimeout(searchTimeout)
-  searchTimeout = setTimeout(() => {
+  
+  if (!searchQuery.value.trim()) {
+    suggestions.value = []
+    showSuggestions.value = false
+    stocksStore.searchRatings('')
+    return
+  }
+
+  searchTimeout = setTimeout(async () => {
+    // 1. Update the table results (current behavior)
     stocksStore.searchRatings(searchQuery.value)
+    
+    // 2. Fetch suggestions for the dropdown
+    try {
+      const response = await apiService.getRatings({ 
+        search: searchQuery.value, 
+        limit: 8 
+      })
+      suggestions.value = response.data
+      showSuggestions.value = suggestions.value.length > 0
+    } catch (error) {
+      console.error('Failed to fetch suggestions:', error)
+      suggestions.value = []
+    }
   }, 300)
 }
 
-// Lifecycle
+const selectSuggestion = (ticker: string) => {
+  router.push(`/stock/${ticker}`)
+  searchQuery.value = ''
+  showSuggestions.value = false
+  suggestions.value = []
+}
+
+// Close suggestions on click outside
 onMounted(() => {
   updateNavigationState()
+  document.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement
+    if (!target.closest('.search-container')) {
+      showSuggestions.value = false
+    }
+  })
 })
 
 // Watch route changes to update navigation
