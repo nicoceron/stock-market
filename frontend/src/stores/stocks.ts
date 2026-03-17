@@ -625,11 +625,20 @@ export const useStocksStore = defineStore('stocks', () => {
     return `https://logo.clearbit.com/${symbol.toLowerCase()}.com`
   }
 
-  async function searchRatings(searchQuery: string) {
-    await fetchRatings({
-      search: searchQuery,
-      page: 1, // Reset to first page when searching
-    })
+  async function searchRatings(searchQuery: string): Promise<StockRating[]> {
+    if (!searchQuery) return []
+    
+    try {
+      const response = await apiService.getRatings({
+        search: searchQuery,
+        page: 1,
+        limit: 10, // Limit search results for dropdown
+      })
+      return response.data || []
+    } catch (error) {
+      console.error('Search failed:', error)
+      return []
+    }
   }
 
   async function sortRatings(

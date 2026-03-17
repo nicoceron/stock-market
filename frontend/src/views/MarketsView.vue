@@ -55,8 +55,10 @@
       <RecentUpgrades :ratings="stocksStore.ratings" />
     </div>
 
-    <!-- Main table section -->
-    <div class="mt-10">
+    <!-- Main table -->
+    <div class="bg-white">
+      <SearchAndFilters />
+      
       <StockRatingsTable
         :ratings="stocksStore.ratings"
         :sort-by="sortBy"
