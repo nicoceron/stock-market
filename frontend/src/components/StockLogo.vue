@@ -32,12 +32,28 @@ const props = withDefaults(defineProps<Props>(), {
 const stocksStore = useStocksStore()
 
 // Local state
+const currentSourceIndex = ref(-1) // -1 is primary, 0+ are alternatives
 const imageError = ref(false)
 
-// Get logo URL from store (uses cached data from batch loading)
+// Get logo data from store
+const logoData = computed(() => {
+  if (!props.symbol) return null
+  return stocksStore.getCachedLogoData(props.symbol)
+})
+
 const logoUrl = computed(() => {
-  if (!props.symbol) return ''
-  return stocksStore.getLogoUrl(props.symbol)
+  if (!logoData.value) return ''
+  
+  if (currentSourceIndex.value === -1) {
+    return logoData.value.logoUrl
+  }
+  
+  const alternatives = (logoData.value as any).alternatives
+  if (Array.isArray(alternatives) && alternatives[currentSourceIndex.value]) {
+    return alternatives[currentSourceIndex.value]
+  }
+  
+  return ''
 })
 
 // Computed properties
@@ -72,8 +88,17 @@ const fallbackColor = computed(() => {
 })
 
 const handleImageError = () => {
-  console.log(`💥 ${props.symbol}: Image failed to load, showing initials`)
-  imageError.value = true
+  const alternatives = (logoData.value as any)?.alternatives
+  
+  if (Array.isArray(alternatives) && currentSourceIndex.value < alternatives.length - 1) {
+    // Try next alternative
+    currentSourceIndex.value++
+    console.log(`🔄 ${props.symbol}: Primary failed, trying alternative ${currentSourceIndex.value}`)
+  } else {
+    // All sources failed
+    console.log(`💥 ${props.symbol}: All image sources failed, showing initials`)
+    imageError.value = true
+  }
 }
 </script>
 

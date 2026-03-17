@@ -124,12 +124,56 @@ func (h *Handlers) GetStockLogo(c *gin.Context) {
 
 	symbol = strings.ToUpper(symbol)
 	
-	// Use Financial Modeling Prep's primary image service (more reliable)
-	logoURL := fmt.Sprintf("https://images.financialmodelingprep.com/symbol/%s.png", symbol)
+	// Map common stock symbols to their primary domains for fallbacks
+	domainMap := map[string]string{
+		"AAPL":  "apple.com",
+		"MSFT":  "microsoft.com",
+		"GOOGL": "google.com",
+		"GOOG":  "google.com",
+		"AMZN":  "amazon.com",
+		"META":  "meta.com",
+		"TSLA":  "tesla.com",
+		"NVDA":  "nvidia.com",
+		"BRK.B": "berkshirehathaway.com",
+		"BRK.A": "berkshirehathaway.com",
+		"JPM":   "jpmorganchase.com",
+		"V":     "visa.com",
+		"MA":    "mastercard.com",
+		"PYPL":  "paypal.com",
+		"NFLX":  "netflix.com",
+		"DIS":   "disney.com",
+		"CRM":   "salesforce.com",
+		"ADBE":  "adobe.com",
+		"AMD":   "amd.com",
+		"INTC":  "intel.com",
+	}
 
-	response := StockLogoResponse{
+	domain, hasDomain := domainMap[symbol]
+	if !hasDomain {
+		domain = strings.ToLower(symbol) + ".com"
+	}
+
+	// TIERED STRATEGY: 
+	// 1. Primary: Financial Modeling Prep (Ticker-based)
+	// 2. Secondary: Clearbit (Domain-based)
+	// 3. Final Fallback: Google Favicon Service (High availability)
+	logoURL := fmt.Sprintf("https://images.financialmodelingprep.com/symbol/%s.png", symbol)
+	
+	// If the ticker is likely to fail in FMP or for extra safety, we provide alternatives 
+	// The frontend StockLogo.vue component will handle the actual fallback if 404 occurs
+	// but here we can at least provide the most likely valid URL.
+	
+	response := struct {
+		Symbol      string   `json:"symbol"`
+		LogoURL     string   `json:"logo_url"`
+		Alternative []string `json:"alternatives,omitempty"`
+	}{
 		Symbol:  symbol,
 		LogoURL: logoURL,
+		Alternative: []string{
+			fmt.Sprintf("https://logo.clearbit.com/%s", domain),
+			fmt.Sprintf("https://www.google.com/s2/favicons?domain=%s&sz=128", domain),
+		},
 	}
 
 	c.Header("Cache-Control", "public, max-age=3600")

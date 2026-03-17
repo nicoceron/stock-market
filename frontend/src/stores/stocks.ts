@@ -136,12 +136,13 @@ export const useStocksStore = defineStore('stocks', () => {
     return cached
   }
 
-  function setCachedLogoData(symbol: string, logoUrl: string) {
+  function setCachedLogoData(symbol: string, logoUrl: string, alternatives?: string[]) {
     logoCache.value.set(symbol, {
       symbol,
       logoUrl,
+      alternatives,
       lastUpdated: Date.now(),
-    })
+    } as any)
   }
 
   // Price data utility functions (no caching, just shared store)
@@ -226,7 +227,7 @@ export const useStocksStore = defineStore('stocks', () => {
           try {
             const logoData = await apiService.getStockLogo(symbol)
             if (logoData?.logo_url) {
-              setCachedLogoData(symbol, logoData.logo_url)
+              setCachedLogoData(symbol, logoData.logo_url, (logoData as any).alternatives)
             } else {
               setCachedLogoData(symbol, `https://logo.clearbit.com/${symbol.toLowerCase()}.com`)
             }
@@ -261,7 +262,7 @@ export const useStocksStore = defineStore('stocks', () => {
 
         const logoData = await apiService.getStockLogo(symbol)
         if (logoData?.logo_url) {
-          setCachedLogoData(symbol, logoData.logo_url)
+          setCachedLogoData(symbol, logoData.logo_url, (logoData as any).alternatives)
         } else {
           setCachedLogoData(symbol, `https://logo.clearbit.com/${symbol.toLowerCase()}.com`)
         }
@@ -738,6 +739,7 @@ export const useStocksStore = defineStore('stocks', () => {
 
     // Cache functions
     getLogoUrl,
+    getCachedLogoData,
     getPriceData,
     isPriceDataLoading,
 

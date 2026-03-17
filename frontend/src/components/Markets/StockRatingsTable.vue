@@ -1,218 +1,112 @@
 <template>
-  <div class="overflow-x-auto">
-    <table class="min-w-full">
-      <thead class="border-t border-b border-gray-200">
-        <tr>
-          <th
-            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12"
-          >
-            #
-          </th>
-          <th
-            @click="handleHeaderClick('ticker')"
-            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
-          >
-            <div class="flex items-center justify-between">
-              <span>Stock</span>
-              <div class="flex flex-col ml-1">
-                <component
-                  :is="getSortIcon('ticker', 'asc')"
-                  class="h-3 w-3"
-                  :class="getSortIconColor('ticker', 'asc')"
-                />
-                <component
-                  :is="getSortIcon('ticker', 'desc')"
-                  class="h-3 w-3 -mt-1"
-                  :class="getSortIconColor('ticker', 'desc')"
-                />
+  <div class="overflow-x-auto -mx-4 lg:-mx-8">
+    <div class="inline-block min-w-full align-middle">
+      <table class="min-w-full border-separate border-spacing-0">
+        <thead>
+          <tr class="border-t border-b border-gray-100">
+            <th class="sticky top-0 z-10 border-b border-t border-gray-100 bg-white py-3 pl-4 pr-3 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider lg:pl-8 w-10">
+              <div class="flex items-center space-x-1">
+                <StarIcon class="w-3.5 h-3.5 text-gray-300" />
+                <span>#</span>
               </div>
-            </div>
-          </th>
-          <th
-            @click="handleHeaderClick('target_to')"
-            class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
-          >
-            <div class="flex items-center justify-end">
-              <span>Price Target</span>
-              <div class="flex flex-col ml-1">
-                <component
-                  :is="getSortIcon('target_to', 'asc')"
-                  class="h-3 w-3"
-                  :class="getSortIconColor('target_to', 'asc')"
-                />
-                <component
-                  :is="getSortIcon('target_to', 'desc')"
-                  class="h-3 w-3 -mt-1"
-                  :class="getSortIconColor('target_to', 'desc')"
-                />
+            </th>
+            <th @click="handleHeaderClick('ticker')" class="sticky top-0 z-10 border-b border-t border-gray-100 bg-white py-3 px-3 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-50 transition-colors">
+              <div class="flex items-center space-x-1">
+                <span>Stock</span>
+                <ChevronDownIcon v-if="sortBy === 'ticker'" class="w-3 h-3" :class="sortOrder === 'desc' ? '' : 'rotate-180'" />
               </div>
-            </div>
-          </th>
-          <th
-            @click="handleHeaderClick('rating_to')"
-            class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
-          >
-            <div class="flex items-center justify-end">
-              <span>Rating</span>
-              <div class="flex flex-col ml-1">
-                <component
-                  :is="getSortIcon('rating_to', 'asc')"
-                  class="h-3 w-3"
-                  :class="getSortIconColor('rating_to', 'asc')"
-                />
-                <component
-                  :is="getSortIcon('rating_to', 'desc')"
-                  class="h-3 w-3 -mt-1"
-                  :class="getSortIconColor('rating_to', 'desc')"
-                />
+            </th>
+            <th @click="handleHeaderClick('target_to')" class="sticky top-0 z-10 border-b border-t border-gray-100 bg-white py-3 px-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-50 transition-colors">
+              <div class="flex items-center justify-end space-x-1">
+                <span>Price Target</span>
+                <ChevronDownIcon v-if="sortBy === 'target_to'" class="w-3 h-3" :class="sortOrder === 'desc' ? '' : 'rotate-180'" />
               </div>
-            </div>
-          </th>
-          <th
-            @click="handleHeaderClick('brokerage')"
-            class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
-          >
-            <div class="flex items-center justify-end">
-              <span>Analyst</span>
-              <div class="flex flex-col ml-1">
-                <component
-                  :is="getSortIcon('brokerage', 'asc')"
-                  class="h-3 w-3"
-                  :class="getSortIconColor('brokerage', 'asc')"
-                />
-                <component
-                  :is="getSortIcon('brokerage', 'desc')"
-                  class="h-3 w-3 -mt-1"
-                  :class="getSortIconColor('brokerage', 'desc')"
-                />
+            </th>
+            <th @click="handleHeaderClick('rating_to')" class="sticky top-0 z-10 border-b border-t border-gray-100 bg-white py-3 px-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-50 transition-colors">
+              <div class="flex items-center justify-end space-x-1">
+                <span>Rating</span>
+                <ChevronDownIcon v-if="sortBy === 'rating_to'" class="w-3 h-3" :class="sortOrder === 'desc' ? '' : 'rotate-180'" />
               </div>
-            </div>
-          </th>
-          <th
-            class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+            </th>
+            <th @click="handleHeaderClick('brokerage')" class="sticky top-0 z-10 border-b border-t border-gray-100 bg-white py-3 px-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-50 transition-colors">
+              <div class="flex items-center justify-end space-x-1">
+                <span>Analyst</span>
+                <ChevronDownIcon v-if="sortBy === 'brokerage'" class="w-3 h-3" :class="sortOrder === 'desc' ? '' : 'rotate-180'" />
+              </div>
+            </th>
+            <th class="sticky top-0 z-10 border-b border-t border-gray-100 bg-white py-3 pl-3 pr-4 text-right text-[11px] font-bold text-gray-500 uppercase tracking-wider lg:pr-8">
+              Last 7 Days
+            </th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100 bg-white">
+          <tr
+            v-for="(rating, index) in sortedRatings"
+            :key="`rating-${rating.ticker}-${index}`"
+            class="hover:bg-gray-50 transition-colors cursor-pointer group"
+            @click="$router.push(`/stock/${rating.ticker}`)"
           >
-            Last 7 Days
-          </th>
-        </tr>
-      </thead>
-      <tbody class="bg-white divide-y divide-gray-100">
-        <tr
-          v-for="(rating, index) in sortedRatings"
-          :key="`rating-${rating.ticker}-${index}`"
-          class="hover:bg-gray-50 cursor-pointer"
-          @click="$router.push(`/stock/${rating.ticker}`)"
-        >
-          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-            {{ (currentPage - 1) * pageSize + index + 1 }}
-          </td>
+            <td class="whitespace-nowrap py-4 pl-4 pr-3 text-[13px] text-gray-500 lg:pl-8">
+              <div class="flex items-center space-x-2">
+                <StarIcon class="w-4 h-4 text-gray-300 hover:text-yellow-400 transition-colors" />
+                <span>{{ (currentPage - 1) * pageSize + index + 1 }}</span>
+              </div>
+            </td>
 
-          <td class="px-6 py-4 whitespace-nowrap">
-            <div class="flex items-center">
-              <StockLogo :symbol="rating.ticker" size="sm" />
-              <div class="ml-3">
-                <div class="text-sm font-medium text-gray-900">{{ rating.ticker }}</div>
-                <div class="text-sm text-gray-500 truncate max-w-32">{{ rating.company }}</div>
-              </div>
-            </div>
-          </td>
-
-          <td class="px-6 py-4 whitespace-nowrap text-right">
-            <div class="flex items-center justify-end space-x-3">
-              <div
-                v-if="rating.target_from && rating.target_from !== rating.target_to"
-                class="text-right opacity-60"
-              >
-                <div
-                  class="text-xs font-medium text-gray-500 bg-gray-50 px-2 py-1 rounded-lg border line-through"
-                >
-                  ${{ (rating.target_from || 0).toFixed(2) }}
-                </div>
-                <div class="text-xs text-gray-400 mt-1">Previous</div>
-              </div>
-
-              <div
-                v-if="rating.target_from && rating.target_from !== rating.target_to"
-                class="text-blue-500 text-lg font-bold animate-pulse"
-              >
-                →
-              </div>
-
-              <div class="text-right">
-                <div
-                  class="text-xs font-bold text-gray-900 bg-blue-50 px-3 py-1.5 rounded-lg border-2 border-blue-200"
-                >
-                  ${{ (rating.target_to || 0).toFixed(2) }}
-                </div>
-                <div class="text-xs text-gray-600 mt-1">Current</div>
-              </div>
-
+            <td class="whitespace-nowrap px-3 py-4">
               <div class="flex items-center">
-                <component
-                  :is="getTargetTrendIcon(rating)"
-                  class="h-5 w-5"
-                  :class="getTargetTrendColor(rating) + ' drop-shadow-sm'"
-                />
-              </div>
-            </div>
-          </td>
-
-          <td class="px-6 py-4 whitespace-nowrap text-right">
-            <div class="flex items-center justify-end space-x-3">
-              <div
-                v-if="rating.rating_from && rating.rating_from !== rating.rating_to"
-                class="text-right opacity-60"
-              >
-                <span
-                  class="inline-flex px-2 py-1 text-xs font-medium rounded-lg bg-gray-100 text-gray-500 border line-through"
-                >
-                  {{ rating.rating_from }}
-                </span>
-                <div class="text-xs text-gray-400 mt-1">
-                  ${{ (rating.target_from || 0).toFixed(2) }}
+                <StockLogo :symbol="rating.ticker" size="sm" class="w-6 h-6 mr-3" />
+                <div class="flex flex-col">
+                  <span class="text-[14px] font-bold text-gray-900 group-hover:text-gecko-green-600 transition-colors">{{ rating.ticker }}</span>
+                  <span class="text-[12px] text-gray-500 truncate max-w-[120px]">{{ rating.company }}</span>
                 </div>
               </div>
+            </td>
 
-              <div
-                v-if="rating.rating_from && rating.rating_from !== rating.rating_to"
-                class="text-blue-500 text-lg font-bold animate-pulse"
-              >
-                →
-              </div>
-
-              <div class="text-right">
-                <span
-                  :class="getRatingColor(rating.rating_to)"
-                  class="inline-flex px-3 py-1.5 text-xs font-bold rounded-lg shadow-sm border-2 border-opacity-20"
-                >
-                  {{ rating.rating_to }}
-                </span>
-                <div class="text-xs text-gray-700 mt-1">
-                  ${{ (rating.target_to || 0).toFixed(2) }}
+            <td class="whitespace-nowrap px-3 py-4 text-right">
+              <div class="flex flex-col items-end">
+                <span class="text-[14px] font-bold text-gray-900">${{ (rating.target_to || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</span>
+                <div v-if="rating.target_from" class="flex items-center text-[11px] mt-0.5">
+                  <span :class="getTargetTrendColor(rating)" class="flex items-center font-bold">
+                    <component :is="getTargetTrendIcon(rating)" class="w-2.5 h-2.5 mr-0.5" />
+                    {{ getTargetPercentChange(rating) }}%
+                  </span>
                 </div>
               </div>
-            </div>
-          </td>
+            </td>
 
-          <td class="px-6 py-4 whitespace-nowrap text-right">
-            <div class="text-sm text-gray-900">{{ rating.brokerage }}</div>
-            <div class="text-xs text-gray-500">{{ formatDate(rating.time) }}</div>
-          </td>
+            <td class="whitespace-nowrap px-3 py-4 text-right">
+              <span
+                :class="getRatingColor(rating.rating_to)"
+                class="inline-flex px-2 py-0.5 text-[11px] font-bold rounded-md uppercase tracking-tight"
+              >
+                {{ rating.rating_to }}
+              </span>
+            </td>
 
-          <td class="px-6 py-4 whitespace-nowrap text-right">
-            <div class="w-32 h-8">
-              <MiniChart :symbol="rating.ticker" :rating="rating" period="1W" />
-            </div>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+            <td class="whitespace-nowrap px-3 py-4 text-right">
+              <div class="flex flex-col items-end">
+                <span class="text-[13px] font-medium text-gray-900">{{ rating.brokerage }}</span>
+                <span class="text-[11px] text-gray-400">{{ formatDate(rating.time) }}</span>
+              </div>
+            </td>
+
+            <td class="whitespace-nowrap pl-3 pr-4 py-4 text-right lg:pr-8">
+              <div class="w-24 h-10 ml-auto">
+                <MiniChart :symbol="rating.ticker" :rating="rating" period="1W" />
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { ArrowUpIcon, ArrowDownIcon, MinusIcon } from '@heroicons/vue/24/outline'
-import { ChevronUpIcon, ChevronDownIcon } from '@heroicons/vue/20/solid'
+import { StarIcon } from '@heroicons/vue/24/outline'
+import { ChevronDownIcon, ChevronUpIcon, MinusIcon } from '@heroicons/vue/20/solid'
 import StockLogo from '@/components/StockLogo.vue'
 import MiniChart from '@/components/MiniChart.vue'
 import type { StockRating, RatingsFilters } from '@/types'
@@ -244,78 +138,36 @@ const getRatingPriority = (rating: string): number => {
 
 const sortedRatings = computed(() => {
   if (!Array.isArray(props.ratings)) return []
-
-  const sortedArray = [...props.ratings]
-
-  switch (props.sortBy) {
-    case 'rating_to':
-      return sortedArray.sort((a, b) => {
-        const priorityA = getRatingPriority(a.rating_to || '')
-        const priorityB = getRatingPriority(b.rating_to || '')
-        return props.sortOrder === 'desc' ? priorityB - priorityA : priorityA - priorityB
-      })
-
-    case 'ticker':
-      return sortedArray.sort((a, b) => {
-        const tickerA = (a.ticker || '').toLowerCase()
-        const tickerB = (b.ticker || '').toLowerCase()
-        return props.sortOrder === 'desc'
-          ? tickerB.localeCompare(tickerA)
-          : tickerA.localeCompare(tickerB)
-      })
-
-    case 'target_to':
-      return sortedArray.sort((a, b) => {
-        const targetA = a.target_to || 0
-        const targetB = b.target_to || 0
-        return props.sortOrder === 'desc' ? targetB - targetA : targetA - targetB
-      })
-
-    case 'brokerage':
-      return sortedArray.sort((a, b) => {
-        const brokerageA = (a.brokerage || '').toLowerCase()
-        const brokerageB = (b.brokerage || '').toLowerCase()
-        return props.sortOrder === 'desc'
-          ? brokerageB.localeCompare(brokerageA)
-          : brokerageA.localeCompare(brokerageB)
-      })
-
-    case 'time':
-    case 'updated_at':
-      return sortedArray.sort((a, b) => {
-        const timeA = new Date(a.time || '').getTime()
-        const timeB = new Date(b.time || '').getTime()
-        return props.sortOrder === 'desc' ? timeB - timeA : timeA - timeB
-      })
-
-    default:
-      return sortedArray
-  }
+  return [...props.ratings]
 })
 
 const getRatingColor = (rating: string) => {
   const r = rating.toLowerCase()
-  if (r.includes('buy') || r.includes('strong')) return 'bg-green-100 text-green-800'
-  if (r.includes('sell')) return 'bg-red-100 text-red-800'
-  if (r.includes('hold')) return 'bg-yellow-100 text-yellow-800'
-  return 'bg-gray-100 text-gray-800'
+  if (r.includes('buy') || r.includes('strong')) return 'bg-gecko-green-50 text-gecko-green-600'
+  if (r.includes('sell')) return 'bg-red-50 text-red-600'
+  if (r.includes('hold')) return 'bg-yellow-50 text-yellow-600'
+  return 'bg-gray-50 text-gray-500'
 }
 
-const getTargetTrendIcon = (rating: { target_to?: number; target_from?: number }) => {
+const getTargetPercentChange = (rating: StockRating) => {
+  if (!rating.target_from || !rating.target_to) return '0.0'
+  const change = ((rating.target_to - rating.target_from) / rating.target_from) * 100
+  return Math.abs(change).toFixed(1)
+}
+
+const getTargetTrendIcon = (rating: StockRating) => {
   const targetTo = rating.target_to || 0
   const targetFrom = rating.target_from || 0
-
-  if (targetFrom && targetTo > targetFrom) return ArrowUpIcon
-  if (targetFrom && targetTo < targetFrom) return ArrowDownIcon
+  if (targetFrom && targetTo > targetFrom) return ChevronUpIcon
+  if (targetFrom && targetTo < targetFrom) return ChevronDownIcon
   return MinusIcon
 }
 
-const getTargetTrendColor = (rating: { target_to?: number; target_from?: number }) => {
+const getTargetTrendColor = (rating: StockRating) => {
   const targetTo = rating.target_to || 0
   const targetFrom = rating.target_from || 0
-
-  if (targetFrom && targetTo > targetFrom) return 'text-green-600'
-  if (targetFrom && targetTo < targetFrom) return 'text-red-600'
+  if (targetFrom && targetTo > targetFrom) return 'text-gecko-green-500'
+  if (targetFrom && targetTo < targetFrom) return 'text-red-500'
   return 'text-gray-400'
 }
 
@@ -329,15 +181,5 @@ const formatDate = (dateString: string) => {
 const handleHeaderClick = (column: string) => {
   emit('sort', column)
 }
-
-const getSortIcon = (column: string, direction: 'asc' | 'desc') => {
-  return direction === 'asc' ? ChevronUpIcon : ChevronDownIcon
-}
-
-const getSortIconColor = (column: string, direction: 'asc' | 'desc') => {
-  if (props.sortBy === column && props.sortOrder === direction) {
-    return 'text-blue-600'
-  }
-  return 'text-gray-300'
-}
 </script>
+

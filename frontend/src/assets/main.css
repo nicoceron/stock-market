@@ -53,28 +53,17 @@ html {
 
 /* Utility classes for financial data presentation */
 .price-up {
-  color: #22c55e;
-}
-
-.dark .price-up {
-  color: #4ade80;
+  color: #8cc351;
 }
 
 .price-down {
-  color: #ef4444;
-}
-
-.dark .price-down {
-  color: #f87171;
+  color: #ea3943;
 }
 
 .price-neutral {
-  color: #6b7280;
+  color: #616e85;
 }
 
-.dark .price-neutral {
-  color: #9ca3af;
-}
 
 /* Custom transitions for smooth interactions */
 .fade-enter-active,

@@ -90,7 +90,7 @@ const trend = computed(() => {
 })
 
 const trendColor = computed(() => {
-  return trend.value === 'up' ? '#10b981' : '#ef4444'
+  return trend.value === 'up' ? '#8cc351' : '#ea3943'
 })
 
 // Generate data points from real price data
@@ -143,7 +143,7 @@ const fallbackTrend = computed(() => {
 })
 
 const fallbackTrendColor = computed(() => {
-  return fallbackTrend.value === 'up' ? '#10b981' : '#ef4444'
+  return fallbackTrend.value === 'up' ? '#8cc351' : '#ea3943'
 })
 
 const fallbackPoints = computed(() => {

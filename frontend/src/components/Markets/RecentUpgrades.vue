@@ -1,49 +1,30 @@
 <template>
-  <div class="bg-white shadow rounded-lg p-3 flex flex-col">
-    <div class="flex items-center justify-between mb-2">
-      <h3 class="text-lg font-semibold text-gray-900 flex items-center">🚀 Recent Upgrades</h3>
+  <div class="bg-white border border-gray-100 rounded-xl p-4 h-full shadow-sm hover:shadow-md transition-shadow duration-200">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-[15px] font-bold text-gray-900 flex items-center">
+        <span class="mr-1.5">🚀</span> Upgrades
+      </h3>
     </div>
 
-    <div v-if="recentUpgrades && recentUpgrades.length > 0" class="space-y-2 flex-1">
+    <div v-if="recentUpgrades && recentUpgrades.length > 0" class="space-y-3">
       <div
         v-for="(rating, index) in recentUpgrades.slice(0, 3)"
         :key="`upgrade-${rating.ticker}-${index}`"
-        class="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg cursor-pointer border border-gray-100"
+        class="flex items-center justify-between group cursor-pointer"
         @click="$router.push(`/stock/${rating.ticker}`)"
       >
-        <div class="flex items-center space-x-3">
-          <StockLogo :symbol="rating.ticker" size="sm" />
-          <div>
-            <div class="text-sm font-medium text-gray-900">{{ rating.ticker }}</div>
-            <div class="text-xs text-gray-500">{{ rating.brokerage }}</div>
+        <div class="flex items-center space-x-2.5">
+          <span class="text-[12px] font-medium text-gray-400 w-3">{{ index + 1 }}</span>
+          <StockLogo :symbol="rating.ticker" size="xs" class="w-5 h-5" />
+          <div class="flex flex-col">
+            <span class="text-[13px] font-bold text-gray-900 group-hover:text-gecko-green-600 transition-colors">{{ rating.ticker }}</span>
           </div>
         </div>
-        <div class="flex items-center space-x-4">
-          <div class="text-right">
-            <div class="text-lg font-bold text-gray-900">
-              ${{ (rating.target_to || 0).toFixed(2) }}
-            </div>
-            <div class="text-xs text-gray-500">Price Target</div>
-          </div>
-
-          <div class="flex items-center space-x-2">
-            <div
-              v-if="rating.rating_from && rating.rating_from !== rating.rating_to"
-              class="flex items-center space-x-2"
-            >
-              <span
-                class="inline-flex px-2 py-1 text-xs font-medium rounded-lg bg-gray-100 text-gray-500 border line-through"
-              >
-                {{ rating.rating_from }}
-              </span>
-              <div class="text-blue-500 text-sm font-bold">→</div>
-            </div>
-            <span
-              class="inline-flex px-3 py-1.5 text-xs font-bold rounded-lg bg-green-100 text-green-800 border border-green-200"
-            >
-              {{ rating.rating_to }}
-            </span>
-          </div>
+        <div class="flex items-center space-x-3">
+          <span class="text-[13px] font-bold text-gray-900">${{ (rating.target_to || 0).toFixed(2) }}</span>
+          <span class="text-[12px] font-bold text-gecko-green-500 flex items-center bg-gecko-green-50 px-1.5 py-0.5 rounded">
+            {{ rating.rating_to }}
+          </span>
         </div>
       </div>
     </div>
@@ -79,3 +60,4 @@ const recentUpgrades = computed(() => {
   })
 })
 </script>
+
