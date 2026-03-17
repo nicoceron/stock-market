@@ -2,7 +2,7 @@
 
 A professional-grade real-time investment intelligence platform. This system automatically ingests analyst sentiment and market data to provide a dynamic "Investment Score" for the world's most traded stocks.
 
-<img width="2942" height="1828" alt="image" src="https://github.com/user-attachments/assets/e25ddddf-7529-45b8-b2bd-f673eacb33eb" />
+<img width="2786" height="1700" alt="image" src="https://github.com/user-attachments/assets/fe433757-26d7-4c51-abc2-4960aea723b4" />
 
 ## 🧠 Advanced Recommendation Engine
 Unlike basic trackers, this platform uses a custom **Weighted Scoring Algorithm** to identify opportunities:
