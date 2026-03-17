@@ -99,7 +99,12 @@ func (s *Service) ingestFromLegacyAPI(ctx context.Context) error {
 }
 
 func (s *Service) ingestFromAlpacaNews(ctx context.Context) error {
-	tickers := []string{"AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "META", "NVDA", "BRK.B", "JPM", "V"}
+	tickers := []string{
+		"AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "META", "NVDA", "BRK.B", "JPM", "V",
+		"UNH", "LLY", "XOM", "AVGO", "HD", "PG", "MA", "COST", "ABBV", "JNJ",
+		"MRK", "CRM", "BAC", "CVX", "ADBE", "NFLX", "AMD", "PEP", "TMO", "WMT",
+		"WFC", "KO", "DIS", "CSCO", "ACN", "ABT", "LIN", "MCD", "INTU", "ORCL",
+	}
 	end := time.Now()
 	start := end.AddDate(0, 0, -7) // Last 7 days
 

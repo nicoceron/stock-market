@@ -65,7 +65,7 @@ func main() {
 		os.Getenv("STOCK_API_TOKEN"),
 	)
 
-	fmt.Println("🚀 Starting REAL data ingestion from Alpaca...")
+	fmt.Println("🚀 Starting REAL data ingestion from Alpaca for 40+ tickers...")
 	err = ingestSvc.IngestAllData(context.Background())
 	if err != nil {
 		log.Fatalf("Ingestion failed: %v", err)

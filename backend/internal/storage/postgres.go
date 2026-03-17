@@ -178,19 +178,46 @@ func (r *PostgresRepository) GetStockRatings(ctx context.Context, filters domain
 	orderClause := fmt.Sprintf("ORDER BY %s %s", sortBy, strings.ToUpper(order))
 
 	// Get total count
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM stock_ratings %s", whereClause)
+	// If we are deduplicating by ticker, we need to count unique tickers
+	var countQuery string
+	if search == "" && sortBy == "time" && r.dialect != "sqlite" {
+		countQuery = "SELECT COUNT(DISTINCT ticker) FROM stock_ratings"
+	} else if search != "" {
+		countQuery = fmt.Sprintf("SELECT COUNT(DISTINCT ticker) FROM stock_ratings %s", whereClause)
+	} else {
+		countQuery = fmt.Sprintf("SELECT COUNT(*) FROM stock_ratings %s", whereClause)
+	}
+
 	var totalCount int
 	err := r.db.QueryRowContext(ctx, countQuery, args...).Scan(&totalCount)
 	if err != nil {
 		return nil, apperrors.Wrap(err, apperrors.ErrCodeDatabase, "failed to get total count")
 	}
 
-	// Get paginated results
-	query := fmt.Sprintf(`
-		SELECT rating_id, ticker, company, brokerage, action, rating_from, 
-			   rating_to, target_from, target_to, time, created_at
-		FROM stock_ratings %s %s LIMIT %s OFFSET %s`,
-		whereClause, orderClause, r.placeholder(argCount+1), r.placeholder(argCount+2))
+	// Build paginated results query
+	// We use DISTINCT ON (ticker) to ensure we only show the LATEST rating for each company 
+	// unless the user is searching for something specific.
+	var query string
+	if search == "" && sortBy == "time" && r.dialect != "sqlite" {
+		query = fmt.Sprintf(`
+			SELECT rating_id, ticker, company, brokerage, action, rating_from, 
+				   rating_to, target_from, target_to, time, created_at
+			FROM (
+				SELECT DISTINCT ON (ticker) * 
+				FROM stock_ratings 
+				ORDER BY ticker, time DESC
+			) sub
+			ORDER BY time DESC 
+			LIMIT %s OFFSET %s`,
+			r.placeholder(argCount+1), r.placeholder(argCount+2))
+	} else {
+		// Fallback for search or other sort types
+		query = fmt.Sprintf(`
+			SELECT rating_id, ticker, company, brokerage, action, rating_from, 
+				   rating_to, target_from, target_to, time, created_at
+			FROM stock_ratings %s %s LIMIT %s OFFSET %s`,
+			whereClause, orderClause, r.placeholder(argCount+1), r.placeholder(argCount+2))
+	}
 
 	args = append(args, limit, offset)
 

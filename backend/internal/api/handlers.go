@@ -123,7 +123,9 @@ func (h *Handlers) GetStockLogo(c *gin.Context) {
 	}
 
 	symbol = strings.ToUpper(symbol)
-	logoURL := fmt.Sprintf("https://logo.clearbit.com/%s.com", strings.ToLower(symbol))
+	
+	// Use Financial Modeling Prep's primary image service (more reliable)
+	logoURL := fmt.Sprintf("https://images.financialmodelingprep.com/symbol/%s.png", symbol)
 
 	response := StockLogoResponse{
 		Symbol:  symbol,

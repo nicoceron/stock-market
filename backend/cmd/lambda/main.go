@@ -105,7 +105,7 @@ func init() {
 	alpacaSvc = alpaca.NewAdapter(cfg.AlpacaAPIKey, cfg.AlpacaAPISecret, cfg.AlpacaBaseURL)
 	stockRepo = storage.NewPostgresRepository(db)
 	ingestionSvc = ingestion.NewService(stockRepo, alpacaSvc, cfg.StockAPIURL, cfg.StockAPIToken)
-	recommendationSvc = recommendation.NewService(stockRepo)
+	recommendationSvc = recommendation.NewService(stockRepo, alpacaSvc)
 
 	// Setup HTTP router with all handlers and middleware
 	router := api.SetupRouter(stockRepo, ingestionSvc, recommendationSvc, alpacaSvc)

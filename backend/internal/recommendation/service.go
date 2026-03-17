@@ -16,6 +16,7 @@ import (
 // Service implements the RecommendationService interface
 type Service struct {
 	stockRepo domain.StockRepository
+	alpacaSvc domain.AlpacaService
 	cache     *recommendationCache
 }
 
@@ -28,9 +29,10 @@ type recommendationCache struct {
 }
 
 // NewService creates a new recommendation service
-func NewService(stockRepo domain.StockRepository) *Service {
+func NewService(stockRepo domain.StockRepository, alpacaSvc domain.AlpacaService) *Service {
 	return &Service{
 		stockRepo: stockRepo,
+		alpacaSvc: alpacaSvc,
 		cache: &recommendationCache{
 			ttl: 5 * time.Minute, // Cache for 5 minutes
 		},
@@ -39,7 +41,7 @@ func NewService(stockRepo domain.StockRepository) *Service {
 
 // GenerateRecommendations analyzes data and generates stock recommendations
 func (s *Service) GenerateRecommendations(ctx context.Context) ([]domain.StockRecommendation, error) {
-	// Step 1: Get the latest ratings for all tickers
+	// Step 1: Get the latest ratings for all tickers from the DB
 	latestRatings, err := s.stockRepo.GetLatestRatingsByTicker(ctx)
 	if err != nil {
 		return nil, apperrors.Wrap(err, apperrors.ErrCodeDatabase, "failed to get latest ratings")
@@ -51,22 +53,37 @@ func (s *Service) GenerateRecommendations(ctx context.Context) ([]domain.StockRe
 		return []domain.StockRecommendation{}, nil
 	}
 
-	// Step 3: Generate recommendations (using basic analysis to avoid slowdowns)
+	// Step 3: Fetch LIVE prices for candidates to ensure real-time scoring
+	livePrices := make(map[string]float64)
+	for _, rating := range candidates {
+		snapshot, err := s.alpacaSvc.GetSnapshot(ctx, rating.Ticker)
+		if err == nil && snapshot != nil {
+			if snapshot.LatestTrade != nil {
+				livePrices[rating.Ticker] = snapshot.LatestTrade.Price
+			} else if snapshot.MinuteBar != nil {
+				livePrices[rating.Ticker] = snapshot.MinuteBar.Close
+			}
+		}
+	}
+
+	// Step 4: Generate recommendations using live prices
 	var recommendations []domain.StockRecommendation
 	for _, rating := range candidates {
-		// Skip enriched data lookup for now to avoid timeouts
-		recommendation := s.createBasicRecommendation(rating)
+		currentPrice, hasLivePrice := livePrices[rating.Ticker]
+		
+		// Pass the live price to the scoring engine
+		recommendation := s.createBasicRecommendation(rating, currentPrice, hasLivePrice)
 		if recommendation != nil {
 			recommendations = append(recommendations, *recommendation)
 		}
 	}
 
-	// Step 4: Sort recommendations by score (descending)
+	// Step 5: Sort recommendations by score (descending)
 	sort.Slice(recommendations, func(i, j int) bool {
 		return recommendations[i].Score > recommendations[j].Score
 	})
 
-	// Step 5: Return top 10 recommendations
+	// Step 6: Return top 10 recommendations
 	if len(recommendations) > 10 {
 		recommendations = recommendations[:10]
 	}
@@ -135,7 +152,7 @@ func (s *Service) isUpgrade(from *string, to *string) bool {
 }
 
 // createBasicRecommendation creates a recommendation based on an advanced scoring algorithm
-func (s *Service) createBasicRecommendation(rating *domain.StockRating) *domain.StockRecommendation {
+func (s *Service) createBasicRecommendation(rating *domain.StockRating, livePrice float64, hasLivePrice bool) *domain.StockRecommendation {
 	baseScore := 0.5 // Start neutral
 
 	// 1. Rating Strength Bonus
@@ -152,11 +169,18 @@ func (s *Service) createBasicRecommendation(rating *domain.StockRating) *domain.
 		baseScore += bonus
 	}
 
-	// 2. Upside Potential Calculation (if we have target prices)
+	// 2. Upside Potential Calculation (use live price if available)
 	upsideBonus := 0.0
 	upsidePercentage := 0.0
-	if rating.TargetTo != nil && rating.TargetFrom != nil && *rating.TargetFrom > 0 {
-		currentPrice := *rating.TargetFrom // We store current price in TargetFrom during ingestion
+	
+	currentPrice := 0.0
+	if hasLivePrice {
+		currentPrice = livePrice
+	} else if rating.TargetFrom != nil {
+		currentPrice = *rating.TargetFrom
+	}
+
+	if currentPrice > 0 && rating.TargetTo != nil {
 		targetPrice := *rating.TargetTo
 		upsidePercentage = ((targetPrice - currentPrice) / currentPrice) * 100
 		

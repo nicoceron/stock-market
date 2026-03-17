@@ -200,7 +200,7 @@ resource "aws_lambda_function_url" "api" {
 resource "aws_cloudwatch_event_rule" "ingestion_schedule" {
   name                = "${var.project_name}-${var.environment}-ingestion-schedule"
   description         = "Trigger ingestion Lambda function"
-  schedule_expression = "rate(4 hours)"
+  schedule_expression = "rate(1 hour)"
   
   tags = var.common_tags
 }
