@@ -165,6 +165,8 @@ func (r *PostgresRepository) GetStockRatings(ctx context.Context, filters domain
 		"ticker":    true,
 		"company":   true,
 		"brokerage": true,
+		"target_to": true,
+		"rating_to": true,
 	}
 
 	if !validSortFields[sortBy] {
