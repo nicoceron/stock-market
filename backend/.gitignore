@@ -58,3 +58,4 @@ terraform/.terraform/
 terraform/*.tfstate
 terraform/*.tfstate.*
 terraform/.terraform.lock.hclcerts/
+backend/certs/root.crt
