@@ -94,6 +94,9 @@ type AlpacaService interface {
 	// GetSnapshot fetches current market snapshot for real-time data.
 	GetSnapshot(ctx context.Context, symbol string) (*Snapshot, error)
 
+	// GetSnapshots fetches current market snapshots for multiple symbols in one call.
+	GetSnapshots(ctx context.Context, symbols []string) (map[string]*Snapshot, error)
+
 	// GetRecentBars fetches the most recent bars for a symbol.
 	GetRecentBars(ctx context.Context, symbol string) ([]PriceBar, error)
 

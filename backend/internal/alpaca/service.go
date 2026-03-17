@@ -211,11 +211,43 @@ func (s *Service) GetSnapshot(ctx context.Context, symbol string) (*Snapshot, er
 		return nil, fmt.Errorf("failed to get snapshot from Alpaca: %w", err)
 	}
 
-	if snapshot == nil {
-		return nil, fmt.Errorf("no snapshot data available for symbol %s", symbol)
+	return s.convertSnapshot(symbol, snapshot), nil
+}
+
+// GetSnapshots fetches current market snapshots for multiple symbols in one call
+func (s *Service) GetSnapshots(ctx context.Context, symbols []string) (map[string]*Snapshot, error) {
+	if len(symbols) == 0 {
+		return make(map[string]*Snapshot), nil
 	}
 
-	// Convert to our format
+	// Apply rate limiting
+	s.rateLimiter.Wait()
+
+	fmt.Printf("🔸 ALPACA SERVICE: GetSnapshots called for %d symbols\n", len(symbols))
+
+	req := marketdata.GetSnapshotRequest{
+		Feed: marketdata.IEX,
+	}
+
+	snapshots, err := s.client.GetSnapshots(symbols, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get snapshots from Alpaca: %w", err)
+	}
+
+	result := make(map[string]*Snapshot)
+	for symbol, snapshot := range snapshots {
+		result[symbol] = s.convertSnapshot(symbol, snapshot)
+	}
+
+	return result, nil
+}
+
+// convertSnapshot converts Alpaca SDK snapshot to our internal format
+func (s *Service) convertSnapshot(symbol string, snapshot *marketdata.Snapshot) *Snapshot {
+	if snapshot == nil {
+		return nil
+	}
+
 	result := &Snapshot{
 		Symbol: symbol,
 	}
@@ -274,7 +306,7 @@ func (s *Service) GetSnapshot(ctx context.Context, symbol string) (*Snapshot, er
 		}
 	}
 
-	return result, nil
+	return result
 }
 
 // GetRecentBars fetches the most recent bars for a symbol (convenience method)
@@ -375,8 +407,28 @@ func (a *Adapter) GetSnapshot(ctx context.Context, symbol string) (*domain.Snaps
 		return nil, err
 	}
 
+	return a.convertToDomainSnapshot(snapshot), nil
+}
+
+// GetSnapshots implements domain.AlpacaService
+func (a *Adapter) GetSnapshots(ctx context.Context, symbols []string) (map[string]*domain.Snapshot, error) {
+	snapshots, err := a.service.GetSnapshots(ctx, symbols)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[string]*domain.Snapshot)
+	for symbol, snapshot := range snapshots {
+		result[symbol] = a.convertToDomainSnapshot(snapshot)
+	}
+
+	return result, nil
+}
+
+// convertToDomainSnapshot converts internal snapshot to domain format
+func (a *Adapter) convertToDomainSnapshot(snapshot *Snapshot) *domain.Snapshot {
 	if snapshot == nil {
-		return nil, nil
+		return nil
 	}
 
 	domainSnapshot := &domain.Snapshot{
@@ -434,7 +486,7 @@ func (a *Adapter) GetSnapshot(ctx context.Context, symbol string) (*domain.Snaps
 		}
 	}
 
-	return domainSnapshot, nil
+	return domainSnapshot
 }
 
 // GetRecentBars implements domain.AlpacaService

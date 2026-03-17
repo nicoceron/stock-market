@@ -53,23 +53,34 @@ func (s *Service) GenerateRecommendations(ctx context.Context) ([]domain.StockRe
 		return []domain.StockRecommendation{}, nil
 	}
 
-	// Step 3: Fetch LIVE prices for candidates to ensure real-time scoring
-	livePrices := make(map[string]float64)
-	for _, rating := range candidates {
-		snapshot, err := s.alpacaSvc.GetSnapshot(ctx, rating.Ticker)
-		if err == nil && snapshot != nil {
-			if snapshot.LatestTrade != nil {
-				livePrices[rating.Ticker] = snapshot.LatestTrade.Price
-			} else if snapshot.MinuteBar != nil {
-				livePrices[rating.Ticker] = snapshot.MinuteBar.Close
-			}
-		}
+	// Step 3: Fetch LIVE prices for candidates in BATCH to ensure real-time scoring without timeouts
+	symbols := make([]string, len(candidates))
+	for i, rating := range candidates {
+		symbols[i] = rating.Ticker
 	}
 
-	// Step 4: Generate recommendations using live prices
+	snapshots, err := s.alpacaSvc.GetSnapshots(ctx, symbols)
+	if err != nil {
+		fmt.Printf("⚠️ Warning: Failed to fetch batch snapshots: %v. Falling back to individual (cached) prices.\n", err)
+	}
+
+	// Step 4: Generate recommendations using batch prices
 	var recommendations []domain.StockRecommendation
 	for _, rating := range candidates {
-		currentPrice, hasLivePrice := livePrices[rating.Ticker]
+		currentPrice := 0.0
+		hasLivePrice := false
+
+		if snapshots != nil {
+			if snapshot, exists := snapshots[rating.Ticker]; exists && snapshot != nil {
+				if snapshot.LatestTrade != nil {
+					currentPrice = snapshot.LatestTrade.Price
+					hasLivePrice = true
+				} else if snapshot.MinuteBar != nil {
+					currentPrice = snapshot.MinuteBar.Close
+					hasLivePrice = true
+				}
+			}
+		}
 		
 		// Pass the live price to the scoring engine
 		recommendation := s.createBasicRecommendation(rating, currentPrice, hasLivePrice)
