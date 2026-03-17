@@ -152,10 +152,11 @@ func (r *PostgresRepository) GetStockRatings(ctx context.Context, filters domain
 	argCount := 0
 
 	if search != "" {
+		// Use distinct placeholders for each column to ensure compatibility across dialects
 		whereClause = fmt.Sprintf("WHERE (company %s %s OR ticker %s %s OR brokerage %s %s)",
-			r.ilike(), r.placeholder(1), r.ilike(), r.placeholder(1), r.ilike(), r.placeholder(1))
-		args = append(args, "%"+search+"%")
-		argCount = 1
+			r.ilike(), r.placeholder(1), r.ilike(), r.placeholder(2), r.ilike(), r.placeholder(3))
+		args = append(args, "%"+search+"%", "%"+search+"%", "%"+search+"%")
+		argCount = 3
 	}
 
 	// Validate and build ORDER BY clause
@@ -175,17 +176,15 @@ func (r *PostgresRepository) GetStockRatings(ctx context.Context, filters domain
 		order = "asc"
 	}
 
-	orderClause := fmt.Sprintf("ORDER BY %s %s", sortBy, strings.ToUpper(order))
-
+	// Internal order for deduplication must be by ticker first
+	// then we sort the final result set by user's preference
+	
 	// Get total count
-	// If we are deduplicating by ticker, we need to count unique tickers
 	var countQuery string
-	if search == "" && sortBy == "time" && r.dialect != "sqlite" {
-		countQuery = "SELECT COUNT(DISTINCT ticker) FROM stock_ratings"
-	} else if search != "" {
+	if r.dialect == "sqlite" {
 		countQuery = fmt.Sprintf("SELECT COUNT(DISTINCT ticker) FROM stock_ratings %s", whereClause)
 	} else {
-		countQuery = fmt.Sprintf("SELECT COUNT(*) FROM stock_ratings %s", whereClause)
+		countQuery = fmt.Sprintf("SELECT COUNT(DISTINCT ticker) FROM stock_ratings %s", whereClause)
 	}
 
 	var totalCount int
@@ -194,29 +193,38 @@ func (r *PostgresRepository) GetStockRatings(ctx context.Context, filters domain
 		return nil, apperrors.Wrap(err, apperrors.ErrCodeDatabase, "failed to get total count")
 	}
 
-	// Build paginated results query
-	// We use DISTINCT ON (ticker) to ensure we only show the LATEST rating for each company 
-	// unless the user is searching for something specific.
+	// Build paginated results query with mandatory deduplication
 	var query string
-	if search == "" && sortBy == "time" && r.dialect != "sqlite" {
+	if r.dialect == "sqlite" {
+		// SQLite compatible deduplication
 		query = fmt.Sprintf(`
 			SELECT rating_id, ticker, company, brokerage, action, rating_from, 
 				   rating_to, target_from, target_to, time, created_at
-			FROM (
-				SELECT DISTINCT ON (ticker) * 
+			FROM stock_ratings 
+			WHERE rowid IN (
+				SELECT id FROM (
+					SELECT rowid as id, ticker, MAX(time) as max_time
+					FROM stock_ratings 
+					%s
+					GROUP BY ticker
+				)
+			)
+			ORDER BY %s %s
+			LIMIT %s OFFSET %s`,
+			whereClause, sortBy, strings.ToUpper(order), r.placeholder(argCount+1), r.placeholder(argCount+2))
+	} else {
+		// Postgres/CockroachDB optimized deduplication
+		query = fmt.Sprintf(`
+			SELECT * FROM (
+				SELECT DISTINCT ON (ticker) rating_id, ticker, company, brokerage, action, rating_from, 
+					   rating_to, target_from, target_to, time, created_at
 				FROM stock_ratings 
+				%s
 				ORDER BY ticker, time DESC
 			) sub
-			ORDER BY time DESC 
+			ORDER BY %s %s
 			LIMIT %s OFFSET %s`,
-			r.placeholder(argCount+1), r.placeholder(argCount+2))
-	} else {
-		// Fallback for search or other sort types
-		query = fmt.Sprintf(`
-			SELECT rating_id, ticker, company, brokerage, action, rating_from, 
-				   rating_to, target_from, target_to, time, created_at
-			FROM stock_ratings %s %s LIMIT %s OFFSET %s`,
-			whereClause, orderClause, r.placeholder(argCount+1), r.placeholder(argCount+2))
+			whereClause, sortBy, strings.ToUpper(order), r.placeholder(argCount+1), r.placeholder(argCount+2))
 	}
 
 	args = append(args, limit, offset)
