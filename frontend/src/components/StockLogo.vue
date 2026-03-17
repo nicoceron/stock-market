@@ -90,13 +90,14 @@ const fallbackColor = computed(() => {
 const handleImageError = () => {
   const alternatives = (logoData.value as any)?.alternatives
   
-  if (Array.isArray(alternatives) && currentSourceIndex.value < alternatives.length - 1) {
+  if (Array.isArray(alternatives) && (currentSourceIndex.value < alternatives.length - 1)) {
     // Try next alternative
     currentSourceIndex.value++
-    console.log(`🔄 ${props.symbol}: Primary failed, trying alternative ${currentSourceIndex.value}`)
+    const nextUrl = alternatives[currentSourceIndex.value]
+    console.log(`🔄 ${props.symbol}: Primary failed, trying alternative ${currentSourceIndex.value}: ${nextUrl}`)
   } else {
-    // All sources failed
-    console.log(`💥 ${props.symbol}: All image sources failed, showing initials`)
+    // All image sources failed
+    console.log(`💥 ${props.symbol}: All image sources failed, showing initials fallback`)
     imageError.value = true
   }
 }

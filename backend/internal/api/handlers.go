@@ -124,7 +124,7 @@ func (h *Handlers) GetStockLogo(c *gin.Context) {
 
 	symbol = strings.ToUpper(symbol)
 	
-	// Map common stock symbols to their primary domains for fallbacks
+	// Map common stock symbols to their primary domains for highly reliable lookups
 	domainMap := map[string]string{
 		"AAPL":  "apple.com",
 		"MSFT":  "microsoft.com",
@@ -146,6 +146,30 @@ func (h *Handlers) GetStockLogo(c *gin.Context) {
 		"ADBE":  "adobe.com",
 		"AMD":   "amd.com",
 		"INTC":  "intel.com",
+		"UNH":   "uhg.com",
+		"LLY":   "lilly.com",
+		"XOM":   "exxonmobil.com",
+		"AVGO":  "broadcom.com",
+		"HD":    "homedepot.com",
+		"PG":    "pg.com",
+		"COST":  "costco.com",
+		"ABBV":  "abbvie.com",
+		"JNJ":   "jnj.com",
+		"MRK":   "merck.com",
+		"BAC":   "bankofamerica.com",
+		"CVX":   "chevron.com",
+		"PEP":   "pepsico.com",
+		"TMO":   "thermofisher.com",
+		"WMT":   "walmart.com",
+		"WFC":   "wellsfargo.com",
+		"KO":    "cocacola.com",
+		"CSCO":  "cisco.com",
+		"ACN":   "accenture.com",
+		"ABT":   "abbott.com",
+		"LIN":   "linde.com",
+		"MCD":   "mcdonalds.com",
+		"INTU":  "intuit.com",
+		"ORCL":  "oracle.com",
 	}
 
 	domain, hasDomain := domainMap[symbol]
@@ -153,15 +177,11 @@ func (h *Handlers) GetStockLogo(c *gin.Context) {
 		domain = strings.ToLower(symbol) + ".com"
 	}
 
-	// TIERED STRATEGY: 
-	// 1. Primary: Financial Modeling Prep (Ticker-based)
-	// 2. Secondary: Clearbit (Domain-based)
-	// 3. Final Fallback: Google Favicon Service (High availability)
+	// NEW STRATEGY:
+	// 1. Financial Modeling Prep (Ticker-based - fast but gaps)
+	// 2. Clearbit (Domain-based - high quality but needs domain)
+	// 3. Google Favicon (Domain-based - highest availability)
 	logoURL := fmt.Sprintf("https://images.financialmodelingprep.com/symbol/%s.png", symbol)
-	
-	// If the ticker is likely to fail in FMP or for extra safety, we provide alternatives 
-	// The frontend StockLogo.vue component will handle the actual fallback if 404 occurs
-	// but here we can at least provide the most likely valid URL.
 	
 	response := struct {
 		Symbol      string   `json:"symbol"`
