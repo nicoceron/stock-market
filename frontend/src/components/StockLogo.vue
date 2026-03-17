@@ -1,5 +1,5 @@
 <template>
-  <div class="stock-logo" :class="[sizeClass, imageError || !logoUrl ? '' : 'bg-white border border-gray-100']">
+  <div class="stock-logo" :class="[sizeClass, imageError || !logoUrl ? '' : 'bg-gray-50 border border-gray-200']">
     <img
       v-if="logoUrl && !imageError"
       :src="logoUrl"
